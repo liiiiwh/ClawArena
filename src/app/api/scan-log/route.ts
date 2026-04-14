@@ -2,7 +2,7 @@ import { getScanLog, appendScanEntry } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { ScanEntry } from "@/types";
 
-// export const runtime = "edge";
+export const runtime = "edge";
 
 export async function GET() {
   try {

@@ -6,20 +6,24 @@ import {
   putNewsSources,
 } from "@/lib/kv";
 
-// Use node runtime for seed (needs access to static data files + env vars)
-// export const runtime = "edge";
+export const runtime = "edge";
 
 /**
  * One-time data seeding endpoint.
  * Reads from static data files and writes them to KV.
  * POST /api/seed (requires admin auth)
  */
-// Debug: check if env vars are available
+// Debug: check env + KV availability in edge runtime
 export async function GET() {
+  let kvAvailable = false;
+  try {
+    kvAvailable = typeof (globalThis as any).CLAWARENA_KV !== "undefined";
+  } catch {}
   return Response.json({
     hasAdminKey: !!process.env.ADMIN_API_KEY,
     adminKeyLength: process.env.ADMIN_API_KEY?.length ?? 0,
-    nodeEnv: process.env.NODE_ENV,
+    kvAvailable,
+    runtime: "edge",
   });
 }
 

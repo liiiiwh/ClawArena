@@ -2,8 +2,7 @@ import { getProductsSorted, upsertProduct, deleteProduct } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { Product } from "@/types";
 
-// Node runtime for env var access
-// export const runtime = "edge";
+export const runtime = "edge";
 
 export async function GET(request: Request) {
   try {

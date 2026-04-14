@@ -15,7 +15,7 @@ import {
   applyUpdatesToProducts,
 } from "@/lib/scanner";
 
-// export const runtime = "edge";
+export const runtime = "edge";
 
 /**
  * Daily update endpoint triggered by EdgeOne Cron.
