@@ -7,12 +7,42 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  daily-scan:
+  daily-scan-and-rebuild:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger daily update
+      - name: Trigger daily scan (update KV data)
         run: |
-          curl -s -X GET \
+          echo "Triggering daily scan..."
+          RESULT=$(curl -s -X GET \
             "https://clawarena.edgeone.dev/api/cron/daily-update" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json"
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "$RESULT" | jq .
+
+          # Check if scan succeeded
+          if echo "$RESULT" | jq -e '.success' > /dev/null 2>&1; then
+            echo "Scan completed successfully"
+          else
+            echo "Scan failed, skipping rebuild"
+            exit 1
+          fi
+
+      - name: Trigger EdgeOne rebuild (regenerate static pages)
+        run: |
+          echo "Triggering rebuild to regenerate static pages with new data..."
+          # Push an empty commit to trigger EdgeOne auto-deploy
+          # Alternative: use EdgeOne CLI deploy
+          echo "Rebuild will be triggered by the next step"
+
+      - name: Checkout and push empty commit to trigger rebuild
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push empty commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: daily rebuild $(date -u +%Y-%m-%d)
+
+          Triggered by daily scan to regenerate static pages with latest KV data."
+          git push

@@ -18,7 +18,8 @@ async function getAllNews(): Promise<NewsItem[]> {
   }
 }
 
-export const revalidate = 3600;
+// Fully static — rebuilt daily via cron
+export const dynamic = "force-static";
 
 export default async function NewsPage() {
   const news = await getAllNews();

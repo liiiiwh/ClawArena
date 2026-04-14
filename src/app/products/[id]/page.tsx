@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getProductById, getProducts } from "@/lib/kv";
 import type { Metadata } from "next";
 
-export const dynamicParams = true;
+// Fully static — all product pages generated at build time
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
   try {

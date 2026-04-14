@@ -3,11 +3,13 @@ import { ProductGrid } from "@/components/ProductGrid";
 import { DailyInsights } from "@/components/DailyInsights";
 import { NewsFeed } from "@/components/NewsFeed";
 import { CompareTable } from "@/components/CompareTable";
-import { getProductsSorted, getInsights } from "@/lib/kv";
-import { getNewsSources } from "@/lib/kv";
+import { getProductsSorted, getInsights, getNewsSources } from "@/lib/kv";
 import { fetchAllFeeds } from "@/lib/rss";
 import { categories } from "@/types";
 import type { NewsItem } from "@/types";
+
+// Fully static — rebuilt daily via cron, no Cloud Function at runtime
+export const dynamic = "force-static";
 
 async function getNews(): Promise<NewsItem[]> {
   try {
@@ -17,8 +19,6 @@ async function getNews(): Promise<NewsItem[]> {
     return [];
   }
 }
-
-export const revalidate = 300; // 5 minutes
 
 export default async function Home() {
   const [products, insights, news] = await Promise.all([

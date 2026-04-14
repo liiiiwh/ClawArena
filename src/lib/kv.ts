@@ -28,7 +28,8 @@ const KV_PROXY_BASE =
 async function kvGet<T>(key: string): Promise<T | null> {
   try {
     const res = await fetch(`${KV_PROXY_BASE}/edgekv?key=${encodeURIComponent(key)}`, {
-      cache: "no-store",
+      // Allow Next.js to cache during static generation (build time)
+      cache: "force-cache",
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
