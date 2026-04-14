@@ -1,7 +1,7 @@
 /**
  * KV access layer for ClawArena.
  *
- * EdgeOne Pages KV is only accessible in /edge-functions/ directory,
+ * EdgeOne Pages KV is only accessible in /functions/ directory,
  * not in Next.js API routes. We use the edge function at /edgekv
  * as a proxy to read/write KV from Next.js server components and routes.
  *
@@ -42,6 +42,7 @@ async function kvPut(key: string, value: unknown): Promise<void> {
   const adminKey = process.env.ADMIN_API_KEY;
   const res = await fetch(`${KV_PROXY_BASE}/edgekv`, {
     method: "POST",
+    cache: "no-store", // Never cache write operations
     headers: {
       "Content-Type": "application/json",
       ...(adminKey ? { Authorization: `Bearer ${adminKey}` } : {}),

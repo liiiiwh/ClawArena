@@ -1,6 +1,6 @@
 import { getInsightById } from "@/lib/kv";
 
-// KV accessed via /api/kv edge function proxy
+// KV accessed via /edgekv edge function proxy
 
 export async function GET(
   _request: Request,

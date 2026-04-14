@@ -2,15 +2,13 @@ import { getScanLog, appendScanEntry } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { ScanEntry } from "@/types";
 
-// KV accessed via /api/kv edge function proxy
+// KV accessed via /edgekv edge function proxy
 
 export async function GET() {
   try {
     const entries = await getScanLog();
-    // Sort by date descending (newest first)
-    entries.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
+    // Sort by date (YYYY-MM-DD) descending
+    entries.sort((a, b) => b.date.localeCompare(a.date));
     return Response.json(entries);
   } catch (error) {
     return Response.json(

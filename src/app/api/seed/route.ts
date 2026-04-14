@@ -6,7 +6,7 @@ import {
   putNewsSources,
 } from "@/lib/kv";
 
-// KV accessed via /api/kv edge function proxy, no edge runtime needed here
+// KV accessed via /edgekv edge function proxy
 
 /**
  * One-time data seeding endpoint.

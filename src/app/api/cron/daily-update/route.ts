@@ -15,7 +15,7 @@ import {
   applyUpdatesToProducts,
 } from "@/lib/scanner";
 
-// KV accessed via /api/kv edge function proxy
+// KV accessed via /edgekv edge function proxy
 
 /**
  * Daily update endpoint triggered by EdgeOne Cron.

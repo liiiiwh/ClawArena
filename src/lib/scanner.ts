@@ -78,7 +78,9 @@ export async function checkProductUpdates(
     const release = await checkGitHubRelease(product.github);
     if (release) {
       const currentVersion = getCurrentVersion(product);
-      if (currentVersion && release.tag !== currentVersion) {
+      // Only report changes if we have a known version to compare against
+      // Skip products with no changelog (avoid false positives on first scan)
+      if (currentVersion && release.tag && release.tag !== currentVersion) {
         // Extract highlights from release body
         const highlights = release.body
           .split("\n")

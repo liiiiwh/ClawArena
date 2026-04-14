@@ -2,15 +2,13 @@ import { getInsights, appendInsight } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { Insight } from "@/types";
 
-// KV accessed via /api/kv edge function proxy
+// KV accessed via /edgekv edge function proxy
 
 export async function GET() {
   try {
     const insights = await getInsights();
-    // Sort by date descending (newest first)
-    insights.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
+    // Sort by id (YYYY-MM-DD format) descending, more reliable than parsing date strings
+    insights.sort((a, b) => b.id.localeCompare(a.id));
     return Response.json(insights);
   } catch (error) {
     return Response.json(

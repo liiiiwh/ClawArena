@@ -2,7 +2,7 @@ import { getProductsSorted, upsertProduct, deleteProduct } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { Product } from "@/types";
 
-// KV accessed via /api/kv edge function proxy
+// KV accessed via /edgekv edge function proxy
 
 export async function GET(request: Request) {
   try {
