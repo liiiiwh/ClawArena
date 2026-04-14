@@ -13,18 +13,39 @@ export const runtime = "edge";
  * Reads from static data files and writes them to KV.
  * POST /api/seed (requires admin auth)
  */
-// Debug: check env + KV availability in edge runtime
+// Debug: detect how EdgeOne injects KV
 export async function GET() {
-  let kvAvailable = false;
-  try {
-    kvAvailable = typeof (globalThis as any).CLAWARENA_KV !== "undefined";
-  } catch {}
-  return Response.json({
+  const checks: Record<string, unknown> = {
+    // Check globalThis
+    globalThis_CLAWARENA_KV: typeof (globalThis as any).CLAWARENA_KV,
+    // Check process.env
+    env_CLAWARENA_KV: typeof process.env.CLAWARENA_KV,
+    env_CLAWARENA_KV_value: process.env.CLAWARENA_KV?.substring(0, 30),
+    // Check if it's a direct global (declare const style)
     hasAdminKey: !!process.env.ADMIN_API_KEY,
-    adminKeyLength: process.env.ADMIN_API_KEY?.length ?? 0,
-    kvAvailable,
-    runtime: "edge",
-  });
+  };
+
+  // List all env vars that contain "KV" or "CLAW"
+  const kvEnvVars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.toUpperCase().includes("KV") || key.toUpperCase().includes("CLAW")) {
+      kvEnvVars[key] = typeof value === "string" ? value.substring(0, 50) : String(value);
+    }
+  }
+  checks.kvRelatedEnvVars = kvEnvVars;
+
+  // Check all globalThis keys that might be KV
+  const globalKeys: string[] = [];
+  try {
+    for (const key of Object.getOwnPropertyNames(globalThis)) {
+      if (key.toUpperCase().includes("KV") || key.toUpperCase().includes("CLAW")) {
+        globalKeys.push(key);
+      }
+    }
+  } catch {}
+  checks.kvRelatedGlobals = globalKeys;
+
+  return Response.json(checks);
 }
 
 export async function POST(request: Request) {
