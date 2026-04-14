@@ -14,6 +14,15 @@ import {
  * Reads from static data files and writes them to KV.
  * POST /api/seed (requires admin auth)
  */
+// Debug: check if env vars are available
+export async function GET() {
+  return Response.json({
+    hasAdminKey: !!process.env.ADMIN_API_KEY,
+    adminKeyLength: process.env.ADMIN_API_KEY?.length ?? 0,
+    nodeEnv: process.env.NODE_ENV,
+  });
+}
+
 export async function POST(request: Request) {
   const authError = requireAdmin(request);
   if (authError) return authError;
