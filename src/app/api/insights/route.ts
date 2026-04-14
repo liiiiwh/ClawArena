@@ -2,7 +2,7 @@ import { getInsights, appendInsight } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { Insight } from "@/types";
 
-export const runtime = "edge";
+// export const runtime = "edge";
 
 export async function GET() {
   try {

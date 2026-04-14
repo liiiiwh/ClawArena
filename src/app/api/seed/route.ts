@@ -6,7 +6,8 @@ import {
   putNewsSources,
 } from "@/lib/kv";
 
-export const runtime = "edge";
+// Use node runtime for seed (needs access to static data files + env vars)
+// export const runtime = "edge";
 
 /**
  * One-time data seeding endpoint.
