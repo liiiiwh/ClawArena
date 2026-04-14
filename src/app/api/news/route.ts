@@ -1,7 +1,7 @@
 import { getNewsCache, putNewsCache, getNewsSources } from "@/lib/kv";
 import { fetchAllFeeds } from "@/lib/rss";
 
-export const runtime = "edge";
+// KV accessed via /api/kv edge function proxy
 
 const CACHE_TTL = 3600_000; // 1 hour in ms
 

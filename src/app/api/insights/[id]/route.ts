@@ -1,6 +1,6 @@
 import { getInsightById } from "@/lib/kv";
 
-export const runtime = "edge";
+// KV accessed via /api/kv edge function proxy
 
 export async function GET(
   _request: Request,

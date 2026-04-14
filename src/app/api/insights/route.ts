@@ -2,7 +2,7 @@ import { getInsights, appendInsight } from "@/lib/kv";
 import { requireAdmin } from "@/lib/auth";
 import type { Insight } from "@/types";
 
-export const runtime = "edge";
+// KV accessed via /api/kv edge function proxy
 
 export async function GET() {
   try {

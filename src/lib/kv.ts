@@ -1,9 +1,11 @@
 /**
- * EdgeOne Pages KV access layer.
+ * KV access layer for ClawArena.
  *
- * The KV namespace is bound as a global variable `CLAWARENA_KV`
- * via the EdgeOne Pages console. In local dev, we fall back to
- * reading from the static data files in src/data/.
+ * EdgeOne Pages KV is only accessible in /edge-functions/ directory,
+ * not in Next.js API routes. We use the edge function at /api/kv
+ * as a proxy to read/write KV from Next.js server components and routes.
+ *
+ * In local dev (when KV proxy is unavailable), falls back to static data files.
  */
 
 import type {
@@ -15,52 +17,48 @@ import type {
 } from "@/types";
 import { parseLooseDate } from "@/types";
 
-// ===== EdgeOne KV Type Declaration =====
+// ===== KV Proxy Helper =====
 
-interface KVNamespace {
-  get(key: string, type?: "text"): Promise<string | null>;
-  get(key: string, type: "json"): Promise<unknown | null>;
-  get(
-    key: string,
-    type: "arrayBuffer",
-  ): Promise<ArrayBuffer | null>;
-  get(key: string, type: "stream"): Promise<ReadableStream | null>;
-  put(
-    key: string,
-    value: string | ArrayBuffer | ReadableStream,
-  ): Promise<void>;
-  delete(key: string): Promise<void>;
-  list(options?: {
-    prefix?: string;
-    limit?: number;
-    cursor?: string;
-  }): Promise<{
-    keys: { name: string }[];
-    cursor?: string;
-    list_complete: boolean;
-  }>;
+const KV_PROXY_BASE =
+  process.env.KV_PROXY_URL || // Allow override for local dev
+  (typeof window === "undefined"
+    ? process.env.NEXT_PUBLIC_SITE_URL || "https://clawarena.edgeone.dev"
+    : "");
+
+async function kvGet<T>(key: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${KV_PROXY_BASE}/api/kv?key=${encodeURIComponent(key)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
-declare const CLAWARENA_KV: KVNamespace | undefined;
-
-// ===== KV Helper =====
-
-function getKV(): KVNamespace | null {
-  if (typeof CLAWARENA_KV !== "undefined" && CLAWARENA_KV) {
-    return CLAWARENA_KV;
+async function kvPut(key: string, value: unknown): Promise<void> {
+  const adminKey = process.env.ADMIN_API_KEY;
+  const res = await fetch(`${KV_PROXY_BASE}/api/kv`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(adminKey ? { Authorization: `Bearer ${adminKey}` } : {}),
+    },
+    body: JSON.stringify({ key, value }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`KV put failed: ${err}`);
   }
-  return null;
 }
 
 // ===== Products =====
 
 export async function getProducts(): Promise<Product[]> {
-  const kv = getKV();
-  if (kv) {
-    const data = await kv.get("products:all", "json");
-    if (data) return data as Product[];
-  }
-  // Fallback to static data for local dev
+  const data = await kvGet<Product[]>("products:all");
+  if (data) return data;
+  // Fallback to static data
   const { products } = await import("@/data/products");
   return products;
 }
@@ -80,9 +78,7 @@ export async function getProductById(
 }
 
 export async function putProducts(products: Product[]): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put("products:all", JSON.stringify(products));
+  await kvPut("products:all", products);
 }
 
 export async function upsertProduct(product: Product): Promise<void> {
@@ -105,11 +101,8 @@ export async function deleteProduct(id: string): Promise<void> {
 // ===== Insights =====
 
 export async function getInsights(): Promise<Insight[]> {
-  const kv = getKV();
-  if (kv) {
-    const data = await kv.get("insights:all", "json");
-    if (data) return data as Insight[];
-  }
+  const data = await kvGet<Insight[]>("insights:all");
+  if (data) return data;
   const { insights } = await import("@/data/insights");
   return insights;
 }
@@ -122,9 +115,7 @@ export async function getInsightById(
 }
 
 export async function putInsights(insights: Insight[]): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put("insights:all", JSON.stringify(insights));
+  await kvPut("insights:all", insights);
 }
 
 export async function appendInsight(insight: Insight): Promise<void> {
@@ -141,19 +132,14 @@ export async function appendInsight(insight: Insight): Promise<void> {
 // ===== Scan Log =====
 
 export async function getScanLog(): Promise<ScanEntry[]> {
-  const kv = getKV();
-  if (kv) {
-    const data = await kv.get("scanlog:all", "json");
-    if (data) return data as ScanEntry[];
-  }
+  const data = await kvGet<ScanEntry[]>("scanlog:all");
+  if (data) return data;
   const { scanLog } = await import("@/data/scan-log");
   return scanLog;
 }
 
 export async function putScanLog(entries: ScanEntry[]): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put("scanlog:all", JSON.stringify(entries));
+  await kvPut("scanlog:all", entries);
 }
 
 export async function appendScanEntry(entry: ScanEntry): Promise<void> {
@@ -175,29 +161,18 @@ export interface NewsCacheData {
 }
 
 export async function getNewsCache(): Promise<NewsCacheData | null> {
-  const kv = getKV();
-  if (!kv) return null;
-  const data = await kv.get("news:cache", "json");
-  return data as NewsCacheData | null;
+  return kvGet<NewsCacheData>("news:cache");
 }
 
 export async function putNewsCache(items: NewsItem[]): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put(
-    "news:cache",
-    JSON.stringify({ fetchedAt: Date.now(), items }),
-  );
+  await kvPut("news:cache", { fetchedAt: Date.now(), items });
 }
 
 // ===== News Sources =====
 
 export async function getNewsSources(): Promise<NewsSource[]> {
-  const kv = getKV();
-  if (kv) {
-    const data = await kv.get("news:sources", "json");
-    if (data) return data as NewsSource[];
-  }
+  const data = await kvGet<NewsSource[]>("news:sources");
+  if (data) return data;
   const { newsSources } = await import("@/data/news-sources");
   return newsSources;
 }
@@ -205,29 +180,22 @@ export async function getNewsSources(): Promise<NewsSource[]> {
 export async function putNewsSources(
   sources: NewsSource[],
 ): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put("news:sources", JSON.stringify(sources));
+  await kvPut("news:sources", sources);
 }
 
 // ===== Cron Status =====
 
 export interface CronStatus {
-  lastRun: string; // ISO timestamp
+  lastRun: string;
   status: "success" | "error";
   summary: string;
-  duration: number; // ms
+  duration: number;
 }
 
 export async function getCronStatus(): Promise<CronStatus | null> {
-  const kv = getKV();
-  if (!kv) return null;
-  const data = await kv.get("cron:last-run", "json");
-  return data as CronStatus | null;
+  return kvGet<CronStatus>("cron:last-run");
 }
 
 export async function putCronStatus(status: CronStatus): Promise<void> {
-  const kv = getKV();
-  if (!kv) throw new Error("KV not available");
-  await kv.put("cron:last-run", JSON.stringify(status));
+  await kvPut("cron:last-run", status);
 }
