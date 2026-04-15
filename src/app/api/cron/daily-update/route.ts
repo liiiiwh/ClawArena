@@ -53,8 +53,8 @@ export async function GET(request: Request) {
     await appendScanEntry(scanEntry);
     results.push(`Scan log saved for ${scanEntry.date}`);
 
-    // 4. Generate insight if there are changes
-    const insight = generateInsightFromScan(scanEntry);
+    // 4. Generate insight if there are changes (Gemini-powered)
+    const insight = await generateInsightFromScan(scanEntry);
     if (insight) {
       await appendInsight(insight);
       results.push(`Insight generated: ${insight.title.en}`);

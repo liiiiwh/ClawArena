@@ -91,10 +91,13 @@ export async function parseRSSFeed(
   maxItems = 10,
 ): Promise<RSSRawItem[]> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(feedUrl, {
       headers: { "User-Agent": "ClawArena/1.0 RSS Reader" },
-      signal: AbortSignal.timeout(10000),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return [];
     const xml = await res.text();
     return parseXML(xml).slice(0, maxItems);
