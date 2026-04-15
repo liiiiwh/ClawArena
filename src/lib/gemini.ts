@@ -32,7 +32,7 @@ export async function geminiSearch(
   const url = `${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
+  const timer = setTimeout(() => controller.abort(), 15000);
 
   try {
     const res = await fetch(url, {

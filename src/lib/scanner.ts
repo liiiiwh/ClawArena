@@ -26,7 +26,7 @@ async function checkGitHubRelease(
 
     const apiUrl = `https://api.github.com/repos/${match[1]}/releases/latest`;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    const timer = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch(apiUrl, {
       headers: {
@@ -218,9 +218,9 @@ export async function runFullScan(
   const newProducts: NewProductFound[] = [];
   const searchQueries: string[] = [];
 
-  // 1. Check GitHub releases (batch of 5)
+  // 1. Check GitHub releases (parallel, batch of 10, no delays)
   const githubProducts = products.filter((p) => p.github);
-  const batchSize = 5;
+  const batchSize = 10;
 
   for (let i = 0; i < githubProducts.length; i += batchSize) {
     const batch = githubProducts.slice(i, i + batchSize);
@@ -232,10 +232,6 @@ export async function runFullScan(
       if (result.status === "fulfilled" && result.value.versionChange) {
         versionChanges.push(result.value.versionChange);
       }
-    }
-
-    if (i + batchSize < githubProducts.length) {
-      await new Promise((r) => setTimeout(r, 1000));
     }
   }
   searchQueries.push(
