@@ -112,85 +112,69 @@ interface GeminiNewsResult {
 }
 
 /**
- * Use Gemini + Google Search to find new AI agent products.
+ * Combined Gemini search: find new products AND news in a single API call.
+ * This minimizes Gemini API usage and avoids Cloud Function timeouts.
  */
-export async function searchNewProducts(
-  existingNames: string[],
-): Promise<NewProductFound[]> {
-  const existingList = existingNames.slice(0, 50).join(", ");
+interface CombinedSearchResult {
+  newProducts: { name: string; company: string; source: string }[];
+  news: { productName: string; news: string; source: string }[];
+}
 
-  const prompt = `Search the web for NEW AI agent products, AI coding tools, or AI assistant platforms launched or announced in the last 7 days (April 2026).
+export async function searchProductsAndNews(
+  products: Product[],
+): Promise<{ found: NewProductFound[]; news: NewsChange[] }> {
+  const existingList = products.slice(0, 40).map((p) => p.name).join(", ");
+  const topProducts = products
+    .filter((p) => p.stars || p.category === "coding-agent")
+    .slice(0, 15)
+    .map((p) => p.name)
+    .join(", ");
+
+  const prompt = `Search the web for the latest AI agent ecosystem updates (last 7 days).
 
 I already track these products: ${existingList}
 
-Find products that are NOT in my list above. Focus on:
-- New AI agent/assistant products
-- New AI coding tools or IDEs
-- New enterprise AI agent platforms
-- Significant new open-source AI agent frameworks
+Do TWO things:
+1. Find NEW AI agent/coding products NOT in my list (max 3)
+2. Find LATEST NEWS about these top products: ${topProducts} (max 5)
 
-Return a JSON array (max 5 items) with these fields:
-- name: product name
-- company: company name
-- description: 1-sentence description
-- source: URL where you found this info
+Return JSON:
+{
+  "newProducts": [{"name": "...", "company": "...", "source": "URL"}],
+  "news": [{"productName": "exact name from my list", "news": "1 sentence", "source": "URL"}]
+}
 
-Only include products you are confident are real and recently launched. If you find nothing new, return an empty array [].
-Return ONLY the JSON array, no other text.`;
+Only include verified, recent items. Empty arrays if nothing found.
+Return ONLY the JSON, no other text.`;
 
   try {
     const { text, sources } = await geminiSearch(prompt);
-    const results = parseJsonFromResponse<GeminiProductResult[]>(text);
-    if (!results || !Array.isArray(results)) return [];
+    const result = parseJsonFromResponse<CombinedSearchResult>(text);
 
-    return results
+    if (!result) {
+      return { found: [], news: [] };
+    }
+
+    const found = (result.newProducts ?? [])
       .filter((r) => r.name && r.company)
       .map((r) => ({
         productId: r.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         name: r.name,
         source: r.source || sources[0] || "Gemini web search",
       }));
-  } catch (error) {
-    console.error("Gemini new product search failed:", error);
-    return [];
-  }
-}
 
-/**
- * Use Gemini + Google Search to find news about existing products.
- */
-export async function searchProductNews(
-  productNames: string[],
-): Promise<NewsChange[]> {
-  const namesList = productNames.slice(0, 30).join(", ");
-
-  const prompt = `Search the web for the LATEST NEWS (last 7 days, April 2026) about these AI agent products: ${namesList}
-
-Look for: version updates, funding rounds, major feature launches, acquisitions, partnerships.
-
-Return a JSON array (max 10 items) with:
-- productName: exact product name from my list
-- news: 1-sentence summary of the news
-- source: URL source
-
-Only include verified, recent news. If nothing new, return [].
-Return ONLY the JSON array.`;
-
-  try {
-    const { text, sources } = await geminiSearch(prompt);
-    const results = parseJsonFromResponse<GeminiNewsResult[]>(text);
-    if (!results || !Array.isArray(results)) return [];
-
-    return results
+    const news = (result.news ?? [])
       .filter((r) => r.productName && r.news)
       .map((r) => ({
         productId: r.productName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         news: r.news,
         source: r.source || sources[0] || "Gemini web search",
       }));
+
+    return { found, news };
   } catch (error) {
-    console.error("Gemini search for product news failed:", error);
-    return [];
+    console.error("Gemini combined search failed:", error);
+    return { found: [], news: [] };
   }
 }
 
@@ -228,35 +212,18 @@ export async function runFullScan(
     `GitHub: checked ${githubProducts.length} repos for releases`,
   );
 
-  // 2. Gemini: search for new products
+  // 2. Gemini: combined search for new products + news (single API call)
   if (process.env.GEMINI_API_KEY) {
     try {
-      const existingNames = products.map((p) => p.name);
-      const found = await searchNewProducts(existingNames);
+      const { found, news } = await searchProductsAndNews(products);
       newProducts.push(...found);
-      searchQueries.push(
-        `Gemini: searched for new AI agent products (found ${found.length})`,
-      );
-    } catch (error) {
-      searchQueries.push(
-        `Gemini: new product search failed — ${error instanceof Error ? error.message : "unknown"}`,
-      );
-    }
-
-    // 3. Gemini: search for news about top products
-    try {
-      const topProducts = products
-        .filter((p) => p.stars || p.category === "coding-agent")
-        .slice(0, 20)
-        .map((p) => p.name);
-      const news = await searchProductNews(topProducts);
       newsChanges.push(...news);
       searchQueries.push(
-        `Gemini: searched news for ${topProducts.length} products (found ${news.length})`,
+        `Gemini: found ${found.length} new products, ${news.length} news items`,
       );
     } catch (error) {
       searchQueries.push(
-        `Gemini: news search failed — ${error instanceof Error ? error.message : "unknown"}`,
+        `Gemini: search failed — ${error instanceof Error ? error.message : "unknown"}`,
       );
     }
   } else {

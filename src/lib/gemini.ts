@@ -14,8 +14,8 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 // ===== Rate Limiter =====
 
 const RATE_LIMIT = {
-  maxRPM: 8, // Stay under 10 RPM limit
-  minIntervalMs: (60 / 8) * 1000, // ~7.5s between requests
+  maxRPM: 10, // Match free tier limit
+  minIntervalMs: (60 / 10) * 1000, // 6s between requests
 };
 
 let lastRequestTime = 0;
