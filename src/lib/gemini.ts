@@ -3,7 +3,7 @@
  * Uses Gemini 2.5 Pro (free tier) to search the web and analyze results.
  */
 
-const GEMINI_MODEL = "gemini-2.5-pro";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 interface GeminiResponse {
