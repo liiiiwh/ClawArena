@@ -42,12 +42,24 @@ export async function GET(request: Request) {
     await putNewsCache(newsItems);
     results.push(`RSS: ${newsItems.length} news items cached`);
 
-    // 2. Scan products for updates
+    // 2. Scan products for updates (GitHub + Gemini)
     const products = await getProducts();
     const scanEntry = await runFullScan(products);
     results.push(
-      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news changes`,
+      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news changes, ${scanEntry.newProducts.length} new products`,
     );
+    // Include search queries for debugging
+    for (const q of scanEntry.searchQueries) {
+      results.push(`  → ${q}`);
+    }
+    // Include new product names
+    for (const np of scanEntry.newProducts) {
+      results.push(`  🆕 ${np.name} (${np.source})`);
+    }
+    // Include news details
+    for (const nc of scanEntry.newsChanges) {
+      results.push(`  📰 ${nc.productId}: ${nc.news}`);
+    }
 
     // 3. Save scan log
     await appendScanEntry(scanEntry);

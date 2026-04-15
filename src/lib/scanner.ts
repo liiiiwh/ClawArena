@@ -233,34 +233,38 @@ export async function runFullScan(
   );
 
   // 2. Gemini: search for new products
-  try {
-    const existingNames = products.map((p) => p.name);
-    const found = await searchNewProducts(existingNames);
-    newProducts.push(...found);
-    searchQueries.push(
-      `Gemini: searched for new AI agent products (found ${found.length})`,
-    );
-  } catch (error) {
-    searchQueries.push(
-      `Gemini: new product search failed — ${error instanceof Error ? error.message : "unknown"}`,
-    );
-  }
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const existingNames = products.map((p) => p.name);
+      const found = await searchNewProducts(existingNames);
+      newProducts.push(...found);
+      searchQueries.push(
+        `Gemini: searched for new AI agent products (found ${found.length})`,
+      );
+    } catch (error) {
+      searchQueries.push(
+        `Gemini: new product search failed — ${error instanceof Error ? error.message : "unknown"}`,
+      );
+    }
 
-  // 3. Gemini: search for news about top products
-  try {
-    const topProducts = products
-      .filter((p) => p.stars || p.category === "coding-agent")
-      .slice(0, 20)
-      .map((p) => p.name);
-    const news = await searchProductNews(topProducts);
-    newsChanges.push(...news);
-    searchQueries.push(
-      `Gemini: searched news for ${topProducts.length} products (found ${news.length})`,
-    );
-  } catch (error) {
-    searchQueries.push(
-      `Gemini: news search failed — ${error instanceof Error ? error.message : "unknown"}`,
-    );
+    // 3. Gemini: search for news about top products
+    try {
+      const topProducts = products
+        .filter((p) => p.stars || p.category === "coding-agent")
+        .slice(0, 20)
+        .map((p) => p.name);
+      const news = await searchProductNews(topProducts);
+      newsChanges.push(...news);
+      searchQueries.push(
+        `Gemini: searched news for ${topProducts.length} products (found ${news.length})`,
+      );
+    } catch (error) {
+      searchQueries.push(
+        `Gemini: news search failed — ${error instanceof Error ? error.message : "unknown"}`,
+      );
+    }
+  } else {
+    searchQueries.push("Gemini: skipped (GEMINI_API_KEY not set)");
   }
 
   return {
