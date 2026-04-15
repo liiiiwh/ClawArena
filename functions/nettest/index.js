@@ -15,10 +15,13 @@ export async function onRequest({ request, params, env }) {
   for (const target of targets) {
     try {
       const start = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(target.url, {
-        method: "HEAD",
-        signal: AbortSignal.timeout(5000),
+        method: "GET",
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       const latency = Date.now() - start;
       results.push({
         name: target.name,
