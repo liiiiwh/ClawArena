@@ -141,14 +141,7 @@ Return ONLY the JSON array, no other text.`;
   try {
     const { text, sources } = await geminiSearch(prompt);
     const results = parseJsonFromResponse<GeminiProductResult[]>(text);
-    if (!results || !Array.isArray(results)) {
-      // Log parse failure for debugging — return raw text snippet as a "product" for visibility
-      return [{
-        productId: "_debug-parse-fail",
-        name: `[Parse failed] Raw: ${text.slice(0, 200)}`,
-        source: "gemini-debug",
-      }];
-    }
+    if (!results || !Array.isArray(results)) return [];
 
     return results
       .filter((r) => r.name && r.company)
@@ -158,11 +151,8 @@ Return ONLY the JSON array, no other text.`;
         source: r.source || sources[0] || "Gemini web search",
       }));
   } catch (error) {
-    return [{
-      productId: "_debug-error",
-      name: `[Error] ${error instanceof Error ? error.message : String(error)}`.slice(0, 200),
-      source: "gemini-debug",
-    }];
+    console.error("Gemini new product search failed:", error);
+    return [];
   }
 }
 
