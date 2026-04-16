@@ -2,7 +2,15 @@
 
 import { useI18n } from "@/i18n/context";
 
-export function Hero() {
+interface HeroProps {
+  stats?: {
+    products: number;
+    categories: number;
+    platforms: number;
+  };
+}
+
+export function Hero({ stats }: HeroProps) {
   const { t } = useI18n();
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
@@ -15,6 +23,10 @@ export function Hero() {
     minute: "2-digit",
     hour12: false,
   });
+
+  const productCount = stats?.products ?? 65;
+  const categoryCount = stats?.categories ?? 8;
+  const platformCount = stats?.platforms ?? 20;
 
   return (
     <section className="relative overflow-hidden border-b border-border">
@@ -40,10 +52,9 @@ export function Hero() {
 
           <div className="mt-10 flex flex-wrap justify-center gap-8">
             {[
-              { value: "250K+", label: t("hero.stat.stars") },
-              { value: "65+", label: t("hero.stat.products") },
-              { value: "8", label: t("hero.stat.categories") },
-              { value: "20+", label: t("hero.stat.platforms") },
+              { value: `${productCount}+`, label: t("hero.stat.products") },
+              { value: `${categoryCount}`, label: t("hero.stat.categories") },
+              { value: `${platformCount}+`, label: t("hero.stat.platforms") },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="font-mono text-2xl font-bold text-cyan sm:text-3xl">

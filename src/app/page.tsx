@@ -27,9 +27,18 @@ export default async function Home() {
     getNews(),
   ]);
 
+  // Compute dynamic stats from actual data
+  const uniqueCategories = new Set(products.map((p) => p.category));
+  const uniquePlatforms = new Set(products.flatMap((p) => p.platforms));
+  const heroStats = {
+    products: products.length,
+    categories: uniqueCategories.size,
+    platforms: uniquePlatforms.size,
+  };
+
   return (
     <>
-      <Hero />
+      <Hero stats={heroStats} />
       <ProductGrid products={products} categories={categories} />
       <DailyInsights insights={insights} />
       <NewsFeed news={news} limit={6} />
