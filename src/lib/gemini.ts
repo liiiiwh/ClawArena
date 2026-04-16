@@ -35,8 +35,8 @@ async function rateLimit(): Promise<void> {
 // ===== Retry Logic =====
 
 const RETRY_CONFIG = {
-  maxRetries: 2,
-  baseDelayMs: 3000, // 3s, 6s
+  maxRetries: 1, // Only 1 retry to stay within Cloud Function timeout
+  baseDelayMs: 2000, // 2s backoff
   retryableStatusCodes: [429, 503, 500],
 };
 
@@ -92,7 +92,7 @@ export async function geminiSearch(
     }
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), 10000); // 10s timeout per request
 
     try {
       const res = await fetch(url, {
