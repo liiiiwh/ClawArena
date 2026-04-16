@@ -102,11 +102,18 @@ export async function deleteProduct(id: string): Promise<void> {
 
 // ===== Insights =====
 
+const INSIGHT_RETENTION_DAYS = 30;
+
+/**
+ * Get insights sorted newest first, keeping only the last 30 days.
+ */
 export async function getInsights(): Promise<Insight[]> {
   const data = await kvGet<Insight[]>("insights:all");
-  if (data) return data;
-  const { insights } = await import("@/data/insights");
-  return insights;
+  const list = data ?? (await import("@/data/insights")).insights;
+  // Sort by id (YYYY-MM-DD) descending — newest first
+  const sorted = [...list].sort((a, b) => b.id.localeCompare(a.id));
+  // Keep only the last N days
+  return sorted.slice(0, INSIGHT_RETENTION_DAYS);
 }
 
 export async function getInsightById(
@@ -121,14 +128,22 @@ export async function putInsights(insights: Insight[]): Promise<void> {
 }
 
 export async function appendInsight(insight: Insight): Promise<void> {
-  const insights = await getInsights();
-  const idx = insights.findIndex((i) => i.id === insight.id);
+  const data = await kvGet<Insight[]>("insights:all");
+  const current = data ?? (await import("@/data/insights")).insights;
+  const list = [...current];
+
+  const idx = list.findIndex((i) => i.id === insight.id);
   if (idx >= 0) {
-    insights[idx] = insight;
+    list[idx] = insight;
   } else {
-    insights.push(insight);
+    list.push(insight);
   }
-  await putInsights(insights);
+
+  // Sort by id descending and keep only the last 30 days
+  list.sort((a, b) => b.id.localeCompare(a.id));
+  const trimmed = list.slice(0, INSIGHT_RETENTION_DAYS);
+
+  await putInsights(trimmed);
 }
 
 // ===== Scan Log =====
