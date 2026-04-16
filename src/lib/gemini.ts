@@ -2,19 +2,18 @@
  * Gemini API client with Google Search grounding.
  * Includes rate limiting and automatic retry with exponential backoff.
  *
- * Gemini 2.5 Flash free tier limits:
- *   RPM: 10 requests/minute
- *   TPM: 250,000 tokens/minute
- *   RPD: 500 requests/day
+ * Gemini 3.1 Pro Preview (paid, no free tier):
+ *   $2/M input tokens, $12/M output tokens
+ *   Higher rate limits than free tier models
  */
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-3.1-pro-preview";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 // ===== Rate Limiter =====
 
 const RATE_LIMIT = {
-  maxRPM: 10, // Match free tier limit
+  maxRPM: 10,
   minIntervalMs: (60 / 10) * 1000, // 6s between requests
 };
 
