@@ -44,9 +44,9 @@ export async function GET(request: Request) {
 
     // 2. Scan products for updates (GitHub + Gemini)
     const products = await getProducts();
-    const { entry: scanEntry, newProductDetails } = await runFullScan(products);
+    const { entry: scanEntry, newProductDetails, starUpdates } = await runFullScan(products);
     results.push(
-      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news, ${scanEntry.newProducts.length} new products`,
+      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news, ${scanEntry.newProducts.length} new products, ${starUpdates.length} star updates`,
     );
     for (const q of scanEntry.searchQueries) {
       results.push(`  → ${q}`);
@@ -56,6 +56,9 @@ export async function GET(request: Request) {
     }
     for (const nc of scanEntry.newsChanges) {
       results.push(`  📰 ${nc.productId}: ${nc.news}`);
+    }
+    for (const su of starUpdates.slice(0, 5)) {
+      results.push(`  ⭐ ${su.productId}: ${su.stars}`);
     }
 
     // 3. Save scan log
@@ -71,20 +74,22 @@ export async function GET(request: Request) {
       results.push("No changes detected, no insight generated");
     }
 
-    // 5. Apply updates to products (version changes + news + NEW PRODUCTS)
+    // 5. Apply updates to products (version changes + news + NEW PRODUCTS + stars)
     const totalChanges =
       scanEntry.versionChanges.length +
       scanEntry.newsChanges.length +
-      scanEntry.newProducts.length;
+      scanEntry.newProducts.length +
+      starUpdates.length;
     if (totalChanges > 0) {
       const updatedProducts = applyUpdatesToProducts(
         products,
         scanEntry,
         newProductDetails,
+        starUpdates,
       );
       await putProducts(updatedProducts);
       results.push(
-        `Products updated: ${products.length} → ${updatedProducts.length} (${scanEntry.newProducts.length} added, ${scanEntry.versionChanges.length} version updates, ${scanEntry.newsChanges.length} news updates)`,
+        `Products updated: ${products.length} → ${updatedProducts.length} (${scanEntry.newProducts.length} added, ${scanEntry.versionChanges.length} version, ${scanEntry.newsChanges.length} news, ${starUpdates.length} stars)`,
       );
     }
 

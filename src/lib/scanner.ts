@@ -54,6 +54,48 @@ async function checkGitHubRelease(
   }
 }
 
+/**
+ * Fetch GitHub repo star count.
+ */
+async function fetchGitHubStars(repoUrl: string): Promise<number | null> {
+  try {
+    const match = repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
+    if (!match) return null;
+
+    const apiUrl = `https://api.github.com/repos/${match[1]}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(apiUrl, {
+      headers: {
+        "User-Agent": "ClawArena/1.0 Scanner",
+        Accept: "application/vnd.github.v3+json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const data = (await res.json()) as { stargazers_count: number };
+    return data.stargazers_count ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format star count as "347K+", "1.2M+", etc.
+ */
+function formatStars(count: number): string {
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1)}M+`;
+  }
+  if (count >= 1_000) {
+    return `${Math.floor(count / 1_000)}K+`;
+  }
+  return `${count}`;
+}
+
 function getCurrentVersion(product: Product): string | undefined {
   if (product.changelog && product.changelog.length > 0) {
     return product.changelog[0].version;
@@ -61,13 +103,30 @@ function getCurrentVersion(product: Product): string | undefined {
   return undefined;
 }
 
+export interface StarUpdate {
+  productId: string;
+  stars: string;
+}
+
 export async function checkProductUpdates(
   product: Product,
-): Promise<{ versionChange?: VersionChange }> {
-  const result: { versionChange?: VersionChange } = {};
+): Promise<{ versionChange?: VersionChange; starUpdate?: StarUpdate }> {
+  const result: { versionChange?: VersionChange; starUpdate?: StarUpdate } = {};
 
   if (product.github) {
-    const release = await checkGitHubRelease(product.github);
+    // Fetch stars in parallel with release check
+    const [release, starCount] = await Promise.all([
+      checkGitHubRelease(product.github),
+      fetchGitHubStars(product.github),
+    ]);
+
+    if (starCount !== null) {
+      const formatted = formatStars(starCount);
+      if (formatted !== product.stars) {
+        result.starUpdate = { productId: product.id, stars: formatted };
+      }
+    }
+
     if (release) {
       const currentVersion = getCurrentVersion(product);
       if (currentVersion && release.tag && release.tag !== currentVersion) {
@@ -224,6 +283,7 @@ Return ONLY the JSON, no other text.`;
 export interface ScanResult {
   entry: ScanEntry;
   newProductDetails: NewProductDetail[];
+  starUpdates: StarUpdate[];
 }
 
 export async function runFullScan(
@@ -233,9 +293,10 @@ export async function runFullScan(
   const versionChanges: VersionChange[] = [];
   const newsChanges: NewsChange[] = [];
   const newProducts: NewProductFound[] = [];
+  const starUpdates: StarUpdate[] = [];
   const searchQueries: string[] = [];
 
-  // 1. Check GitHub releases (parallel, batch of 10, no delays)
+  // 1. Check GitHub releases + stars (parallel, batch of 10)
   const githubProducts = products.filter((p) => p.github);
   const batchSize = 10;
 
@@ -246,13 +307,18 @@ export async function runFullScan(
     );
 
     for (const result of results) {
-      if (result.status === "fulfilled" && result.value.versionChange) {
-        versionChanges.push(result.value.versionChange);
+      if (result.status === "fulfilled") {
+        if (result.value.versionChange) {
+          versionChanges.push(result.value.versionChange);
+        }
+        if (result.value.starUpdate) {
+          starUpdates.push(result.value.starUpdate);
+        }
       }
     }
   }
   searchQueries.push(
-    `GitHub: checked ${githubProducts.length} repos for releases`,
+    `GitHub: checked ${githubProducts.length} repos (releases + stars)`,
   );
 
   // 2. Gemini: combined search for new products + news (single API call)
@@ -279,6 +345,10 @@ export async function runFullScan(
     searchQueries.push("Gemini: skipped (GEMINI_API_KEY not set)");
   }
 
+  if (starUpdates.length > 0) {
+    searchQueries.push(`Stars: ${starUpdates.length} products have updated star counts`);
+  }
+
   return {
     entry: {
       date: today,
@@ -289,6 +359,7 @@ export async function runFullScan(
       searchQueries,
     },
     newProductDetails,
+    starUpdates,
   };
 }
 
@@ -440,11 +511,13 @@ function buildInsight(
  * - Add new products discovered by Gemini
  * - Update versions and changelogs
  * - Update latest news
+ * - Update GitHub star counts
  */
 export function applyUpdatesToProducts(
   products: Product[],
   scan: ScanEntry,
   newProductDetails?: NewProductDetail[],
+  starUpdates?: StarUpdate[],
 ): Product[] {
   const updated = [...products];
   const dateStr = new Date(scan.date).toLocaleDateString("en-US", {
@@ -506,6 +579,18 @@ export function applyUpdatesToProducts(
     const product = { ...updated[idx] };
     product.latestNews = nc.news;
     updated[idx] = product;
+  }
+
+  // 4. Update GitHub star counts
+  if (starUpdates) {
+    for (const su of starUpdates) {
+      const idx = updated.findIndex((p) => p.id === su.productId);
+      if (idx < 0) continue;
+
+      const product = { ...updated[idx] };
+      product.stars = su.stars;
+      updated[idx] = product;
+    }
   }
 
   return updated;
