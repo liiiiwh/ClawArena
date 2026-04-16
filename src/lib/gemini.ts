@@ -13,8 +13,8 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 // ===== Rate Limiter =====
 
 const RATE_LIMIT = {
-  maxRPM: 30, // Paid tier has much higher limits
-  minIntervalMs: 2000, // 2s between requests
+  maxRPM: 300, // 5 per second
+  minIntervalMs: 200, // 200ms between requests
 };
 
 let lastRequestTime = 0;
