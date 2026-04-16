@@ -8,7 +8,7 @@
  */
 
 const GEMINI_MODEL = "gemini-3.1-pro-preview";
-const GEMINI_BASE = process.env.GEMINI_BASE_URL || "https://gemini.yuminshijie.cn/v1beta";
+const GEMINI_BASE = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 
 // ===== Rate Limiter =====
 
