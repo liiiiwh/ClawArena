@@ -30,7 +30,9 @@ export default async function Home() {
   // Compute dynamic stats from actual data
   const uniqueCategories = new Set(products.map((p) => p.category));
   const uniquePlatforms = new Set(products.flatMap((p) => p.platforms));
+  const openclaw = products.find((p) => p.id === "openclaw");
   const heroStats = {
+    openclawStars: openclaw?.stars ?? "250K+",
     products: products.length,
     categories: uniqueCategories.size,
     platforms: uniquePlatforms.size,

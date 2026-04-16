@@ -4,6 +4,7 @@ import { useI18n } from "@/i18n/context";
 
 interface HeroProps {
   stats?: {
+    openclawStars: string;
     products: number;
     categories: number;
     platforms: number;
@@ -24,6 +25,7 @@ export function Hero({ stats }: HeroProps) {
     hour12: false,
   });
 
+  const openclawStars = stats?.openclawStars ?? "250K+";
   const productCount = stats?.products ?? 65;
   const categoryCount = stats?.categories ?? 8;
   const platformCount = stats?.platforms ?? 20;
@@ -52,6 +54,7 @@ export function Hero({ stats }: HeroProps) {
 
           <div className="mt-10 flex flex-wrap justify-center gap-8">
             {[
+              { value: openclawStars, label: t("hero.stat.stars") },
               { value: `${productCount}+`, label: t("hero.stat.products") },
               { value: `${categoryCount}`, label: t("hero.stat.categories") },
               { value: `${platformCount}+`, label: t("hero.stat.platforms") },
