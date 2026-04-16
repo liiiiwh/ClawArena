@@ -6,7 +6,7 @@
 
 ## Live Site
 
-**https://clawarena.edgeone.dev**
+**https://clawarena.pupulab.com**
 
 ## Features
 

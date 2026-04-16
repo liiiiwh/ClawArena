@@ -6,7 +6,7 @@
 
 ## 在线访问
 
-**https://clawarena.edgeone.dev**
+**https://clawarena.pupulab.com**
 
 ## 功能特性
 
