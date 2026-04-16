@@ -7,7 +7,7 @@
  *   Higher rate limits than free tier models
  */
 
-const GEMINI_MODEL = "gemini-3.1-pro-preview";
+const GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
 const GEMINI_BASE = process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta";
 
 // ===== Rate Limiter =====
