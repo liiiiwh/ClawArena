@@ -44,19 +44,16 @@ export async function GET(request: Request) {
 
     // 2. Scan products for updates (GitHub + Gemini)
     const products = await getProducts();
-    const scanEntry = await runFullScan(products);
+    const { entry: scanEntry, newProductDetails } = await runFullScan(products);
     results.push(
-      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news changes, ${scanEntry.newProducts.length} new products`,
+      `Scan: ${scanEntry.versionChanges.length} version changes, ${scanEntry.newsChanges.length} news, ${scanEntry.newProducts.length} new products`,
     );
-    // Include search queries for debugging
     for (const q of scanEntry.searchQueries) {
       results.push(`  → ${q}`);
     }
-    // Include new product names
     for (const np of scanEntry.newProducts) {
-      results.push(`  🆕 ${np.name} (${np.source})`);
+      results.push(`  🆕 ${np.name}`);
     }
-    // Include news details
     for (const nc of scanEntry.newsChanges) {
       results.push(`  📰 ${nc.productId}: ${nc.news}`);
     }
@@ -74,13 +71,21 @@ export async function GET(request: Request) {
       results.push("No changes detected, no insight generated");
     }
 
-    // 5. Apply updates to products
+    // 5. Apply updates to products (version changes + news + NEW PRODUCTS)
     const totalChanges =
-      scanEntry.versionChanges.length + scanEntry.newsChanges.length;
+      scanEntry.versionChanges.length +
+      scanEntry.newsChanges.length +
+      scanEntry.newProducts.length;
     if (totalChanges > 0) {
-      const updatedProducts = applyUpdatesToProducts(products, scanEntry);
+      const updatedProducts = applyUpdatesToProducts(
+        products,
+        scanEntry,
+        newProductDetails,
+      );
       await putProducts(updatedProducts);
-      results.push(`Products updated: ${totalChanges} changes applied`);
+      results.push(
+        `Products updated: ${products.length} → ${updatedProducts.length} (${scanEntry.newProducts.length} added, ${scanEntry.versionChanges.length} version updates, ${scanEntry.newsChanges.length} news updates)`,
+      );
     }
 
     const duration = Date.now() - startTime;

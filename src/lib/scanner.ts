@@ -113,16 +113,37 @@ interface GeminiNewsResult {
 
 /**
  * Combined Gemini search: find new products AND news in a single API call.
- * This minimizes Gemini API usage and avoids Cloud Function timeouts.
+ * Returns enough detail to create full Product entries for new products.
  */
 interface CombinedSearchResult {
-  newProducts: { name: string; company: string; source: string }[];
+  newProducts: {
+    name: string;
+    company: string;
+    description: string;
+    website: string;
+    category: string;
+    pricingSummary: string;
+    platforms: string[];
+    source: string;
+  }[];
   news: { productName: string; news: string; source: string }[];
+}
+
+/**
+ * Data returned for new products — enough to create a full Product entry.
+ */
+export interface NewProductDetail extends NewProductFound {
+  company: string;
+  description: string;
+  website: string;
+  category: string;
+  pricingSummary: string;
+  platforms: string[];
 }
 
 export async function searchProductsAndNews(
   products: Product[],
-): Promise<{ found: NewProductFound[]; news: NewsChange[] }> {
+): Promise<{ found: NewProductDetail[]; news: NewsChange[] }> {
   const existingList = products.slice(0, 40).map((p) => p.name).join(", ");
   const topProducts = products
     .filter((p) => p.stars || p.category === "coding-agent")
@@ -130,21 +151,32 @@ export async function searchProductsAndNews(
     .map((p) => p.name)
     .join(", ");
 
+  const validCategories = "open-source, framework, consumer, enterprise, coding-agent, developer, hardware";
+
   const prompt = `Search the web for the latest AI agent ecosystem updates (last 7 days).
 
 I already track these products: ${existingList}
 
 Do TWO things:
-1. Find NEW AI agent/coding products NOT in my list (max 3)
+1. Find NEW AI agent/coding products NOT in my list (max 3). For each, provide FULL details.
 2. Find LATEST NEWS about these top products: ${topProducts} (max 5)
 
 Return JSON:
 {
-  "newProducts": [{"name": "...", "company": "...", "source": "URL"}],
-  "news": [{"productName": "exact name from my list", "news": "1 sentence", "source": "URL"}]
+  "newProducts": [{
+    "name": "Product Name",
+    "company": "Company Name",
+    "description": "2-3 sentence description of what it does",
+    "website": "https://...",
+    "category": "one of: ${validCategories}",
+    "pricingSummary": "e.g. Free / $20/mo / Open Source",
+    "platforms": ["Web", "macOS", "Linux", etc],
+    "source": "URL where you found this"
+  }],
+  "news": [{"productName": "exact name from my list", "news": "1 sentence summary", "source": "URL"}]
 }
 
-Only include verified, recent items. Empty arrays if nothing found.
+Only include verified, recently launched products. Empty arrays if nothing found.
 Return ONLY the JSON, no other text.`;
 
   try {
@@ -155,11 +187,17 @@ Return ONLY the JSON, no other text.`;
       return { found: [], news: [] };
     }
 
-    const found = (result.newProducts ?? [])
+    const found: NewProductDetail[] = (result.newProducts ?? [])
       .filter((r) => r.name && r.company)
       .map((r) => ({
         productId: r.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         name: r.name,
+        company: r.company,
+        description: r.description || `${r.name} by ${r.company}`,
+        website: r.website || "",
+        category: r.category || "consumer",
+        pricingSummary: r.pricingSummary || "Unknown",
+        platforms: r.platforms || ["Web"],
         source: r.source || sources[0] || "Gemini web search",
       }));
 
@@ -183,9 +221,14 @@ Return ONLY the JSON, no other text.`;
 /**
  * Run a full scan: GitHub releases + Gemini web search.
  */
+export interface ScanResult {
+  entry: ScanEntry;
+  newProductDetails: NewProductDetail[];
+}
+
 export async function runFullScan(
   products: Product[],
-): Promise<ScanEntry> {
+): Promise<ScanResult> {
   const today = new Date().toISOString().split("T")[0];
   const versionChanges: VersionChange[] = [];
   const newsChanges: NewsChange[] = [];
@@ -213,10 +256,16 @@ export async function runFullScan(
   );
 
   // 2. Gemini: combined search for new products + news (single API call)
+  let newProductDetails: NewProductDetail[] = [];
   if (process.env.GEMINI_API_KEY) {
     try {
       const { found, news } = await searchProductsAndNews(products);
-      newProducts.push(...found);
+      newProductDetails = found;
+      newProducts.push(...found.map((f) => ({
+        productId: f.productId,
+        name: f.name,
+        source: f.source,
+      })));
       newsChanges.push(...news);
       searchQueries.push(
         `Gemini: found ${found.length} new products, ${news.length} news items`,
@@ -231,12 +280,15 @@ export async function runFullScan(
   }
 
   return {
-    date: today,
-    newProducts,
-    versionChanges,
-    priceChanges: [],
-    newsChanges,
-    searchQueries,
+    entry: {
+      date: today,
+      newProducts,
+      versionChanges,
+      priceChanges: [],
+      newsChanges,
+      searchQueries,
+    },
+    newProductDetails,
   };
 }
 
@@ -384,14 +436,53 @@ function buildInsight(
 }
 
 /**
- * Apply scan results to products — update versions, changelogs, lastUpdate.
+ * Apply scan results to products:
+ * - Add new products discovered by Gemini
+ * - Update versions and changelogs
+ * - Update latest news
  */
 export function applyUpdatesToProducts(
   products: Product[],
   scan: ScanEntry,
+  newProductDetails?: NewProductDetail[],
 ): Product[] {
   const updated = [...products];
+  const dateStr = new Date(scan.date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
+  // 1. Add new products
+  if (newProductDetails) {
+    for (const np of newProductDetails) {
+      // Skip if product already exists
+      if (updated.some((p) => p.id === np.productId)) continue;
+
+      const newProduct: Product = {
+        id: np.productId,
+        name: np.name,
+        tagline: np.description.split(".")[0] || np.name,
+        description: np.description,
+        company: np.company,
+        website: np.website || "#",
+        logo: "🆕",
+        category: np.category,
+        pricingSummary: np.pricingSummary,
+        pricingTiers: [{ name: "Default", price: np.pricingSummary, features: ["See website for details"] }],
+        platforms: np.platforms,
+        models: [],
+        features: [],
+        tags: ["auto-discovered", scan.date],
+        launchDate: dateStr,
+        lastUpdate: dateStr,
+        latestNews: `Discovered by automated scan on ${scan.date}`,
+      };
+      updated.push(newProduct);
+    }
+  }
+
+  // 2. Update versions
   for (const vc of scan.versionChanges) {
     const idx = updated.findIndex((p) => p.id === vc.productId);
     if (idx < 0) continue;
@@ -403,14 +494,11 @@ export function applyUpdatesToProducts(
       highlights: vc.highlights,
     };
     product.changelog = [newEntry, ...(product.changelog ?? [])];
-    product.lastUpdate = new Date(scan.date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    product.lastUpdate = dateStr;
     updated[idx] = product;
   }
 
+  // 3. Update news
   for (const nc of scan.newsChanges) {
     const idx = updated.findIndex((p) => p.id === nc.productId);
     if (idx < 0) continue;
